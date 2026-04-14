@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: pg-mysql
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pg_mysql_data:/var/lib/mysql
+    networks:
+      - pg-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  gateway:
+    build: .
+    container_name: pg-gateway
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "${GATEWAY_PORT}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - pg-net
+
+volumes:
+  pg_mysql_data:
+
+networks:
+  pg-net:
+    driver: bridge
