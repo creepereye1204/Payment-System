@@ -1,0 +1,41 @@
+@startuml architecture
+!theme plain
+title mini-pg-gateway System Architecture
+
+package "Client" {
+    [Test Client\n(client.c)]
+}
+
+package "Gateway Server" {
+    [Main Thread\n(accept loop)]
+    [Worker Thread 1\n(pthread)]
+    [Worker Thread N\n(pthread)]
+    [Validator\n(validator.c)]
+    [Logger\n(logger.c)]
+    [Mutex\n(shared resource)]
+}
+
+package "Storage" {
+    database "MySQL\n(pg_gateway)" {
+        [blacklist]
+        [daily_limit]
+        [transactions]
+    }
+    folder "Log Files" {
+        [YYYYMMDD.log]
+        [error.log]
+    }
+}
+
+[Test Client] --> [Main Thread] : TCP (Binary Struct)
+[Main Thread] --> [Worker Thread 1] : pthread_create()
+[Main Thread] --> [Worker Thread N] : pthread_create()
+[Worker Thread 1] --> [Validator]
+[Worker Thread N] --> [Validator]
+[Validator] --> [MySQL\n(pg_gateway)] : blacklist / limit check
+[Validator] --> [Mutex] : txn cache (mutex lock)
+[Worker Thread 1] --> [Logger]
+[Worker Thread N] --> [Logger]
+[Logger] --> [Log Files]
+
+@enduml

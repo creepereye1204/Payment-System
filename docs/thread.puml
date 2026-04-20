@@ -1,0 +1,36 @@
+@startuml thread
+!theme plain
+title Thread Architecture
+
+package "Main Thread" {
+    usecase "bind / listen" as bind
+    usecase "accept() loop" as acceptloop
+    usecase "client_count check" as cntcheck
+}
+
+package "Worker Thread 1" {
+    usecase "recv PayRequest" as recv1
+    usecase "validate" as val1
+    usecase "send PayResponse" as send1
+    usecase "pthread_detach" as det1
+}
+
+package "Worker Thread N" {
+    usecase "recv PayRequest" as recvN
+    usecase "validate" as valN
+    usecase "send PayResponse" as sendN
+    usecase "pthread_detach" as detN
+}
+
+package "Shared Resource (Mutex 보호)" {
+    usecase "client_count : int" as cnt
+    usecase "txn_cache[1000] : char[][]" as cache
+}
+
+acceptloop --> recv1 : pthread_create()
+acceptloop --> recvN : pthread_create()
+cntcheck ..> cnt : mutex_client_count
+val1 ..> cache : mutex_txn_cache
+valN ..> cache : mutex_txn_cache
+
+@enduml

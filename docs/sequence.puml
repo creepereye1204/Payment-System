@@ -1,0 +1,42 @@
+@startuml sequence
+!theme plain
+title Payment Request Sequence
+
+participant "Client" as C
+participant "Worker Thread" as W
+participant "Validator" as V
+participant "MySQL" as DB
+participant "Logger" as L
+
+C -> W : PayRequest (binary struct)
+W -> W : ntohl() 엔디안 변환
+W -> V : validate_request()
+
+V -> V : 입력값 검증 (형식, 범위)
+V -> DB : SELECT blacklist WHERE card_no = ?
+DB --> V : result
+
+alt 블랙리스트 해당
+    V --> W : DECLINED / CARD_BLACKLISTED
+    W -> L : log DECLINED
+    W --> C : PayResponse (DECLINED)
+else 정상
+    V -> DB : SELECT daily_limit WHERE card_no = ? AND date = today
+    DB --> V : total_amount
+
+    alt 한도 초과
+        V --> W : DECLINED / DAILY_LIMIT_EXCEEDED
+        W -> L : log DECLINED
+        W --> C : PayResponse (DECLINED)
+    else 한도 이내
+        V -> V : 중복 거래 캐시 확인 (mutex lock)
+        V -> V : txn_id 생성
+        V -> DB : INSERT transactions
+        V -> DB : UPDATE daily_limit
+        V --> W : APPROVED
+        W -> L : log APPROVED
+        W --> C : PayResponse (APPROVED)
+    end
+end
+
+@enduml
